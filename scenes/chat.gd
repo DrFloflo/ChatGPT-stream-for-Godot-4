@@ -47,9 +47,7 @@ func _ready():
 		$HTTPSSEClient.new_sse_event.connect(_on_new_sse_event)
 	
 	# Prepare the system message
-	system_message = {"role":"system", "content": "You are a helpful virtual assistant."}
-	
-	_insert_welcome_messages()
+	system_message = {"role":"system", "content": "Tu parlera français avec 10 mots max à chaque fois"}
 
 	
 func _on_new_sse_event(partial_reply: Array, ai_status_message: ChatMessageAI):
@@ -188,24 +186,6 @@ func _on_user_prompt_to_chat(text) -> void:
 	text = "[wave]Thinking...[wave]"
 	ai_message.bbcode_enabled = true
 	_insert_message(ai_message, text, types.STATUS)
-
-
-func _insert_welcome_messages() -> void:
-	await get_tree().create_timer(0.5).timeout
-	var ai_message = message_ai.instantiate()
-	var text = "[wave]Thinking...[wave]"
-	ai_message.bbcode_enabled = true
-	_insert_message(ai_message, text, types.STATUS)
-	await get_tree().create_timer(1).timeout
-	
-	# await get_tree().process_frame
-	text="[wave amp=20.0 freq=5.0]Hello there![/wave]"
-	_insert_message(ai_message,text,types.GODOT)
-	await get_tree().create_timer(1).timeout
-	var ai_message2 = message_ai.instantiate()
-	ai_message2.bbcode_enabled = false
-	text = "This is ChatGPT. How can I help you today?"
-	_insert_message(ai_message2,text,types.GODOT)
 
 
 func strip_bbcode(source:String) -> String:
