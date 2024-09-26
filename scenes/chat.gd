@@ -1,9 +1,9 @@
 extends Node2D
 
-@export var api_key = "your-openai-apì-key"
+@export var api_key = "no key"
 # var max_tokens = 1024
 @export var temperature = 0.5
-@export var model = "gpt-3.5-turbo"
+@export var model = "gemini2"
 @export var stream : bool = true
 
 # The HTTPSSE client doesn't support paralallel requests, so we need to keep
@@ -32,13 +32,8 @@ var system_message : Dictionary
 const VOICE_AI_SYSTEMS = {
 	0 : "No AI speech",
 	1 : "OS TTS",
-	2 : "ElevenLabs",
 }
 
-var voice_ai_system : String = "OS TTS"
-# This will hold the list of voice names for the current voice system
-# which is OS TTS by default
-var voices_list : Array = DisplayServer.tts_get_voices_for_language("en")
 var OS_TTS_voices_list : Array
 var eleven_labs_voice_names : Array
 var eleven_labs_voice_names_to_voice_id: Dictionary
@@ -57,28 +52,6 @@ signal message_processed(message)
 
 func _ready():
 	message_processed.connect(_on_message_processed)
-	# If no voices are fetched from the OS we can't offer OS TTS and we select
-	# "No AI speech" by default
-	if voices_list.size() == 0:
-		voice_ai_system_selector.set_item_disabled(VOICE_AI_SYSTEMS.keys()[1],true)
-		voice_ai_system_selector.select(VOICE_AI_SYSTEMS.keys()[0])
-		voice_ai_system = VOICE_AI_SYSTEMS[0]
-	else:
-		if OS.get_name() == "Windows":
-			for voice in voices_list:
-				var parts = voice.split("\\")
-				var voice_name = parts[-1] # Get the last part of the split string
-				OS_TTS_voices_list.append(voice_name)
-		else:
-			OS_TTS_voices_list = voices_list
-			
-		for voice in OS_TTS_voices_list:
-			voice_selector.add_item(voice)
-	
-	# This triggers a request to fetch the list of voices, it will be received
-	# with a signal
-	$ElevenLabsTTS.get_voices_list()
-	
 	# If stream == true we need to use server-side events, with the HTTPSSEClient add-on
 	if stream:
 		# $HTTPSSEClient.connected.connect(_on_connected)
@@ -164,26 +137,24 @@ func _call_gpt(prompt: String, ai_status_message: RichTextLabel) -> void:
 	var new_message = {"role": "user", "content": prompt} 
 	messages.append(new_message) # we append now the prompt too.
 	
-	var host = "https://api.openai.com"
+	var host = "http://192.168.1.26:11434"
 	var path = "/v1/chat/completions"
 	var url = host+path
 
 	var headers = [
-		"Content-Type: application/json",
-		"Authorization: Bearer " + api_key
+		"Content-Type: application/json"
 	]
 
 	var body = JSON.stringify({
 			"model": model,
 			"messages": messages, # Send the array to chatGPT
-			"temperature": temperature,
-			"stream": stream,
+			"stream": true,
 	})
 	
 	print("Body of the message sent to ChatGPT: ", body)
 	
 	if stream:
-		$HTTPSSEClient.connect_to_host(host, path, headers, body, ai_status_message, 443)
+		$HTTPSSEClient.connect_to_host(host, path, headers, body, ai_status_message, 80)
 		stream_busy.emit(true)
 		stream_ongoing = true
 	else:
@@ -207,7 +178,7 @@ func _on_call_gpt_completed(_result: int, response_code: int, _headers: PackedSt
 	if response_code == 200:
 		json.parse(body.get_string_from_utf8())
 		var response = json.get_data()
-		var clean_response = response.choices[0].message["content"]
+		var clean_response = response.message["content"]
 		_insert_message(ai_reply, clean_response, types.AI)
 		
 	else:
@@ -252,34 +223,6 @@ func strip_bbcode(source:String) -> String:
 	var regex = RegEx.new()
 	regex.compile("\\[.+?\\]")
 	return regex.sub(source, "", true)
-	
-
-func _on_voice_ai_system_selector_item_selected(index: int) -> void:
-	voice_ai_system = VOICE_AI_SYSTEMS[index]
-	voice_selector.clear()
-	voices_list = []
-	if voice_ai_system == "OS TTS":
-		voices_list = DisplayServer.tts_get_voices_for_language("en")
-		for voice in OS_TTS_voices_list:
-			voice_selector.add_item(voice)
-	if voice_ai_system == "ElevenLabs":
-		voices_list = eleven_labs_voice_names
-		for voice in eleven_labs_voice_names:
-			voice_selector.add_item(voice)
-		print("voices_list: ", voices_list)
-
-func _on_voice_selector_item_selected(index: int) -> void:
-	if voice_ai_system == "ElevenLabs":
-		$ElevenLabsTTS.set_voice_id(eleven_labs_voice_names_to_voice_id[eleven_labs_voice_names_to_voice_id.keys()[index]])
-
-
-func _on_eleven_labs_tts_eleven_labs_voices_fetched(names, name_to_voice_id) -> void:
-	if names.size() == 0:
-		voice_ai_system_selector.set_item_disabled(VOICE_AI_SYSTEMS.keys()[2],true)
-	eleven_labs_voice_names = names
-	eleven_labs_voice_names_to_voice_id = name_to_voice_id
-
-
 
 #######
 ## CHAT QUEUE SYSTEM
@@ -293,12 +236,6 @@ func _insert_message(message: RichTextLabel, text: String, type: types ) -> void
 		var clean_text = strip_bbcode(text)
 		if type == types.AI or type == types.GODOT:
 			chat.append({"role": "assistant", "content":clean_text})
-			if voice_ai_system == "OS TTS":
-				DisplayServer.tts_speak(clean_text, voices_list[voice_selector.get_selected_id()])
-			elif voice_ai_system == "ElevenLabs":
-				$ElevenLabsTTS.call_ElevenLabs(clean_text)
-			else: # this would mean "
-				pass
 		if type == types.USER:
 			chat.append({"role": "user", "content":clean_text})
 	print("Messages STORED LOCALLY: ",chat)
