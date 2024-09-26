@@ -3,7 +3,7 @@ extends Node2D
 @export var api_key = "no key"
 # var max_tokens = 1024
 @export var temperature = 0.5
-@export var model = "gemini2"
+@export var model = "gemma2"
 @export var stream : bool = true
 
 # The HTTPSSE client doesn't support paralallel requests, so we need to keep
@@ -29,15 +29,6 @@ var chat_message : String
 
 var system_message : Dictionary
 
-const VOICE_AI_SYSTEMS = {
-	0 : "No AI speech",
-	1 : "OS TTS",
-}
-
-var OS_TTS_voices_list : Array
-var eleven_labs_voice_names : Array
-var eleven_labs_voice_names_to_voice_id: Dictionary
-
 @export var word_by_word_delay : float = 0.1 # in seconds
 
 # To chatGPT we do not pass the whole history,
@@ -47,8 +38,6 @@ var eleven_labs_voice_names_to_voice_id: Dictionary
 signal message_processed(message)
 @onready var conversation_container = $ChatWindow/ConversationContainer
 @onready var conversation = $ChatWindow/ConversationContainer/Conversation
-@onready var voice_ai_system_selector = $ChatWindow/VoiceAISystemSelector
-@onready var voice_selector = $ChatWindow/VoiceSelector
 
 func _ready():
 	message_processed.connect(_on_message_processed)
@@ -137,7 +126,7 @@ func _call_gpt(prompt: String, ai_status_message: RichTextLabel) -> void:
 	var new_message = {"role": "user", "content": prompt} 
 	messages.append(new_message) # we append now the prompt too.
 	
-	var host = "http://192.168.1.26:11434"
+	var host = "192.168.1.26"
 	var path = "/v1/chat/completions"
 	var url = host+path
 
@@ -154,7 +143,7 @@ func _call_gpt(prompt: String, ai_status_message: RichTextLabel) -> void:
 	print("Body of the message sent to ChatGPT: ", body)
 	
 	if stream:
-		$HTTPSSEClient.connect_to_host(host, path, headers, body, ai_status_message, 80)
+		$HTTPSSEClient.connect_to_host(host, path, headers, body, ai_status_message, 11434)
 		stream_busy.emit(true)
 		stream_ongoing = true
 	else:
