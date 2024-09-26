@@ -1,4 +1,4 @@
-# ChatGPT stream for Godot 4
+# Ollama stream for Godot 4
 
 ![chatgpt_stream_for_godot4_gif](docs/chagt_stream_godot4.gif)
 
