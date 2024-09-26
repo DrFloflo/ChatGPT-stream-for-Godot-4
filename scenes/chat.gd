@@ -108,10 +108,10 @@ func _on_new_sse_event(partial_reply: Array, ai_status_message: ChatMessageAI):
 func _inject_message_from_stream(ai_status_message, text):
 	if stream_used_status_ai_message:
 		var ai_message = message_ai.instantiate()
-		_insert_message(ai_message, text, types.AI)
+		_insert_message(ai_message, text, types.AI, false) # add_to_chat = false
 	else:
 		ai_status_message.bbcode_enabled = false
-		_insert_message(ai_status_message, text, types.AI)
+		_insert_message(ai_status_message, text, types.AI, false) # add_to_chat = false
 		stream_used_status_ai_message = true
 
 func _call_gpt(prompt: String, ai_status_message: RichTextLabel) -> void:
@@ -182,31 +182,27 @@ func _on_user_prompt_to_chat(text) -> void:
 	
 	_call_gpt(text, ai_message)
 	
-	await get_tree().create_timer(0.5).timeout
+	await get_tree().create_timer(0.3).timeout
 	text = "[wave]Thinking...[wave]"
 	ai_message.bbcode_enabled = true
 	_insert_message(ai_message, text, types.STATUS)
 
 
-func strip_bbcode(source:String) -> String:
-	var regex = RegEx.new()
-	regex.compile("\\[.+?\\]")
-	return regex.sub(source, "", true)
-
 #######
 ## CHAT QUEUE SYSTEM
 #######
 
-func _insert_message(message: RichTextLabel, text: String, type: types ) -> void:
+func _insert_message(message: RichTextLabel, text: String, type: types, add_to_chat: bool = true) -> void:
 	# First we save the message to our local chat array
-	if type != types.STATUS:
-		# For storing in our internal chat array and for using voice_ai, we want to make sure there
-		# is no BBCode on the text string
-		var clean_text = strip_bbcode(text)
+	if add_to_chat and type != types.STATUS and (text != "" or text != "\n"):
+		
+		var clean_text = text
+		
 		if type == types.AI or type == types.GODOT:
 			chat.append({"role": "assistant", "content":clean_text})
 		if type == types.USER:
 			chat.append({"role": "user", "content":clean_text})
+	
 	print("Messages STORED LOCALLY: ",chat)
 	# We inject the text into the interface message
 	message.text = text
